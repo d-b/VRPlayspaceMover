@@ -1,4 +1,4 @@
-#include "cxxopts.hpp"
+﻿#include "cxxopts.hpp"
 #include <iostream>
 #include <algorithm>
 #include <string>
@@ -159,8 +159,10 @@ void updateVirtualDevices() {
         virtualDeviceIndexes.clear();
         for (uint32_t deviceIndex = 0; deviceIndex < vr::k_unMaxTrackedDeviceCount; deviceIndex++) {
             try {
-                virtualDeviceIndexes.push_back(inputEmulator.getVirtualDeviceInfo(deviceIndex).openvrDeviceId);
-            } catch (vrinputemulator::vrinputemulator_exception e) {
+				auto info = inputEmulator.getVirtualDeviceInfo(deviceIndex);
+				if (info.openvrDeviceId < vr::k_unMaxTrackedDeviceCount)
+					virtualDeviceIndexes.push_back(info.openvrDeviceId);
+            } catch (vrinputemulator::vrinputemulator_exception const&) {
                 //skip
             }
         }
@@ -425,24 +427,31 @@ void updateFakeTrackers() {
 }
 
 bool findTrackers() {
-	if (inputEmulator.getVirtualDeviceCount() == 3) {
-		for (int i = 0; i < 3; i++) {
-			vr::DriverPose_t pose = inputEmulator.getVirtualDevicePose(i);
-			if (pose.deviceIsConnected == true || pose.result != vr::TrackingResult_Uninitialized || pose.poseIsValid == true) {
-				return false;
-			}
+	uint32_t discovered = 0;
+
+	for (uint32_t i = 0; i < inputEmulator.getVirtualDeviceCount(); i++) {
+		vr::DriverPose_t pose = inputEmulator.getVirtualDevicePose(i);
+		if (pose.deviceIsConnected == true || pose.result != vr::TrackingResult_Uninitialized || pose.poseIsValid == true) {
+			return false;
 		}
-		hipID = 0;
-		leftFootID = 1;
-		rightFootID = 2;
-		return true;
+
+		auto info = inputEmulator.getVirtualDeviceInfo(i);
+		if (info.deviceSerial == "playspacemover_hip") {
+			hipID = info.virtualDeviceId; discovered++;
+		}
+		if (info.deviceSerial == "playspacemover_lfoot") {
+			leftFootID = info.virtualDeviceId; discovered++;
+		}
+		if (info.deviceSerial == "playspacemover_rfoot") {
+			rightFootID = info.virtualDeviceId; discovered++;
+		}
 	}
-	return false;
+
+	return discovered == 3;
 }
 
-uint32_t createTracker() {
-	uint32_t id = inputEmulator.getVirtualDeviceCount();
-	inputEmulator.addVirtualDevice(vrinputemulator::VirtualDeviceType::TrackedController, std::to_string(id), false);
+uint32_t createTracker(const std::string& serial) {
+	uint32_t id = inputEmulator.addVirtualDevice(vrinputemulator::VirtualDeviceType::TrackedController, serial, false);
 	inputEmulator.setVirtualDeviceProperty(id, vr::ETrackedDeviceProperty::Prop_TrackingSystemName_String,					"lighthouse");
 	inputEmulator.setVirtualDeviceProperty(id, vr::ETrackedDeviceProperty::Prop_ModelNumber_String,							"Vive Controller MV");
 	inputEmulator.setVirtualDeviceProperty(id, vr::ETrackedDeviceProperty::Prop_RenderModelName_String,						"vr_controller_vive_1_5");
@@ -584,9 +593,9 @@ int app( int argc, const char** argv ) {
 	orbitTracker = result["orbitTracker"].as<bool>(); 
 	fakeTrackers = result["fakeTrackers"].as<bool>() || orbitTracker || result.count("bodyHeight");
 	if (fakeTrackers && !findTrackers()) {
-		hipID = createTracker();
-		leftFootID = createTracker();
-		rightFootID = createTracker();
+		hipID = createTracker("playspacemover_hip");
+		leftFootID = createTracker("playspacemover_lfoot");
+		rightFootID = createTracker("playspacemover_rfoot");
 	}
 	// Only enable physics if they specify one of the variables...
 	physicsEnabled = (result.count("jumpMultiplier") || result.count("airFriction") || result.count("friction") || result.count("noGround") || result.count("gravity") || result["physics"].as<bool>());
