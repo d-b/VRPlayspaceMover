@@ -571,7 +571,7 @@ namespace cxxopts
           throw argument_incorrect_type(text);
         }
 
-        result = result * base + digit;
+		result = (US)(result * base + digit);
       }
 
       detail::check_signed_range<T>(negative, result, text);
