@@ -48,4 +48,20 @@ namespace PlayspaceMover
 			}
 		}
 	}
+
+	void Devices::setVirtualDevicePosition(uint32_t id, glm::vec3 pos, glm::quat rot)
+	{
+		vr::DriverPose_t pose = g_inputEmulator.getVirtualDevicePose(id);
+		pose.vecPosition[0] = pos.x;
+		pose.vecPosition[1] = pos.y;
+		pose.vecPosition[2] = pos.z;
+		pose.poseIsValid = true;
+		pose.deviceIsConnected = true;
+		pose.result = vr::TrackingResult_Running_OK;
+		pose.qRotation.w = rot.w;
+		pose.qRotation.x = rot.x;
+		pose.qRotation.y = rot.y;
+		pose.qRotation.z = rot.z;
+		g_inputEmulator.setVirtualDevicePose(id, pose, false);
+	}
 }

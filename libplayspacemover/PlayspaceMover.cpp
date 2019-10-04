@@ -1,5 +1,6 @@
 ﻿#include "PlayspaceMover.hpp"
 
+/*
 static vr::IVRSystem* m_VRSystem;
 static glm::mat4 offset;
 static glm::mat4 lastOffset;
@@ -157,22 +158,6 @@ void move() {
         //quatCopy.z = quat.z;
         //inputEmulator.setDriverRotationOffset(deviceIndex, quatCopy, false);
     }
-}
-
-
-void setVirtualDevicePosition(uint32_t id, glm::vec3 pos, glm::quat rot) {
-	vr::DriverPose_t pose = inputEmulator.getVirtualDevicePose(id);
-	pose.vecPosition[0] = pos.x;
-	pose.vecPosition[1] = pos.y;
-	pose.vecPosition[2] = pos.z;
-	pose.poseIsValid = true;
-	pose.deviceIsConnected = true;
-	pose.result = vr::TrackingResult_Running_OK;
-	pose.qRotation.w = rot.w;
-	pose.qRotation.x = rot.x;
-	pose.qRotation.y = rot.y;
-	pose.qRotation.z = rot.z;
-	inputEmulator.setVirtualDevicePose(id, pose, false);
 }
 
 void updateFakeTrackers() {
@@ -361,7 +346,7 @@ int app( int argc, const char** argv ) {
 				collide();
                 move();
 
-                /*vr::ETrackedPropertyError errProp;
+                vr::ETrackedPropertyError errProp;
                 int microsecondWait;
                 float flDisplayFrequency = vr::VRSystem()->GetFloatTrackedDeviceProperty(0, vr::Prop_DisplayFrequency_Float, &errProp);
                 if (flDisplayFrequency) {
@@ -370,7 +355,7 @@ int app( int argc, const char** argv ) {
                 } else {
                     microsecondWait = (int)(t.m_flCompositorIdleCpuMs*1000.f);
                 }
-                std::this_thread::sleep_for(std::chrono::microseconds(glm::clamp(microsecondWait, 11111, 22222)));*/
+                std::this_thread::sleep_for(std::chrono::microseconds(glm::clamp(microsecondWait, 11111, 22222)));
 
 				// Sleep for just under 1/90th of a second, so that maybe the next frame will be available.
                 std::this_thread::sleep_for(std::chrono::microseconds(10000));
@@ -381,6 +366,22 @@ int app( int argc, const char** argv ) {
         }
     }
     return 0;
+}
+*/
+
+uint64_t Init(UpdateProc updateProc, PlayspaceMover::Options options)
+{
+	return 0;
+}
+
+uint64_t Configure(PlayspaceMover::Options options)
+{
+	return 0;
+}
+
+uint64_t Exit()
+{
+	return 0;
 }
 
 BOOL WINAPI DllMain(

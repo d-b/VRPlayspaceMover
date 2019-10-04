@@ -13,5 +13,7 @@ namespace PlayspaceMover
 
 		void updateBaseOffsets();
 		void updatePositions();
+
+		static void setVirtualDevicePosition(uint32_t id, glm::vec3 pos, glm::quat rot);
 	};
 }

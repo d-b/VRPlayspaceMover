@@ -6,6 +6,9 @@ MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libplayspacemover", "libplayspacemover\libplayspacemover.vcxproj", "{1D8D078A-61F0-4B32-B7AC-34B808D81972}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PlayspaceMover", "PlayspaceMover\PlayspaceMover.csproj", "{9A679985-0545-4443-92F4-B0DDD4039E7B}"
+	ProjectSection(ProjectDependencies) = postProject
+		{1D8D078A-61F0-4B32-B7AC-34B808D81972} = {1D8D078A-61F0-4B32-B7AC-34B808D81972}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
