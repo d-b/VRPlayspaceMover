@@ -1,40 +1,10 @@
-﻿#include "cxxopts.hpp"
-#include <iostream>
-#include <algorithm>
-#include <string>
-#include <thread>
-#include <openvr.h>
-#include <vrinputemulator.h>
-#include <vector>
-#define GLM_FORCE_SWIZZLE
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/glm.hpp>
-#include <glm/gtc/quaternion.hpp> 
-#include <glm/gtx/quaternion.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <csignal>
-
-#ifdef _WIN32
-#include <Windows.h>
-#endif
-
-#define PLAYSPACE_MOVER_VERSION "v0.1.7"
+﻿#include "PlayspaceMover.hpp"
 
 static vr::IVRSystem* m_VRSystem;
-static vrinputemulator::VRInputEmulator inputEmulator;
 static glm::mat4 offset;
 static glm::mat4 lastOffset;
 static int currentFrame;
 
-static vr::TrackedDevicePose_t devicePoses[vr::k_unMaxTrackedDeviceCount];
-// Stores the positions of each device for the current frame.
-static glm::vec3 devicePos[vr::k_unMaxTrackedDeviceCount];
-// Stores the positions of each device from the previous frame (So we can calculate deltas).
-static glm::vec3 deviceLastPos[vr::k_unMaxTrackedDeviceCount];
-// Stores the initial offset of the devices, so if the user adjusted them before app start we will respect it.
-static glm::vec3 deviceBaseOffsets[vr::k_unMaxTrackedDeviceCount];
-// List of virtual devices.
-static std::vector<uint32_t> virtualDeviceIndexes;
 // Current amount of acceleration (don't change this, it's gravity.)
 static glm::vec3 acceleration;
 // Current amount of velocity
@@ -64,151 +34,6 @@ static float bodyHeight;
 static bool orbitTracker;
 static bool physicsToggleChanged;
 
-void Help() {
-    std::cout << "PlayspaceMover " << PLAYSPACE_MOVER_VERSION << "\n";
-    std::cout << "\n";
-    std::cout << "Copyright (C) 2017 Dalton Nell, PlayspaceMover Contributors\n";
-    std::cout << "(https://github.com/naelstrof/VRPlayspaceMover/graphs/contributors)\n";
-    std::cout << "Usage: VRPlayspaceMover [options]\n";
-    std::cout << "\n";
-    std::cout << "PlayspaceMover is an application that queries for a button press from\n";
-    std::cout << "VR devices and moves the playspace based on it.\n";
-    std::cout << "\n";
-    std::cout << "-h, --help                    Print help and exit\n";
-    std::cout << "-v, --version                 Print version and exit\n";
-    std::cout << "Options\n";
-    std::cout << "  -p, --physics               Enables physics.\n";
-    std::cout << "  --noGround                  Disables ground collisions when physics is enabled.\n";
-    std::cout << "  --fakeTrackers              Spawns some fake full body trackers that follow you.\n";
-    std::cout << "  --orbitTracker              Fake trackers move relative to your HMD rotation.\n";
-    std::cout << "  -l, --leftButtonMask=INT\n";
-    std::cout << "                              Button mask that represents which button\n";
-    std::cout << "                              to detect on the left controller as an integer.\n";
-    std::cout << "                              (See Button Mappings for masks).\n";
-    std::cout << "  -r, --rightButtonMask=INT\n";
-    std::cout << "                              Button mask that represents which button\n";
-    std::cout << "                              to detect on the right controller as an integer.\n";
-    std::cout << "                              (See Button Mappings for masks).\n";
-    std::cout << "  --leftTogglePhysicsMask=INT\n";
-    std::cout << "                              Button mask that represents which buttons\n";
-    std::cout << "                              need to be held on the left controller to toggle\n";
-    std::cout << "                              physics.\n";
-    std::cout << "                              (See Button Mappings for masks).\n";
-    std::cout << "  --rightTogglePhysicsMask=INT\n";
-    std::cout << "                              Button mask that represents which buttons\n";
-    std::cout << "                              need to be held on the right controller to toggle\n";
-    std::cout << "                              physics.\n";
-    std::cout << "                              (See Button Mappings for masks).\n";
-    std::cout << "  --resetButtonMask=INT\n";
-    std::cout << "                              Button mask that represents which buttons\n";
-    std::cout << "                              need to be held on BOTH controllers to reset\n";
-    std::cout << "                              the playspace.\n";
-    std::cout << "                              (See Button Mappings for masks).\n";
-    std::cout << "  -g, --gravity=FLOAT\n";
-    std::cout << "                              Sets how much gravity pulls down on you. Setting\n";
-    std::cout << "                              this variable will also enable physics.\n";
-    std::cout << "  -f, --friction=FLOAT\n";
-    std::cout << "                              Sets how much friction slows you down when you're\n";
-    std::cout << "                              on the ground. Higher friction means sharper stops.\n";
-    std::cout << "                              Setting this variable will also enable physics.\n";
-    std::cout << "  --airFriction=FLOAT\n";
-    std::cout << "                              Sets how much friction slows you down when you're\n";
-    std::cout << "                              in the air. Higher friction means sharper stops.\n";
-    std::cout << "                              Setting this variable will also enable physics.\n";
-    std::cout << "  -j, --jumpMultiplier=FLOAT\n";
-    std::cout << "                              Multiplies the force applied to you when you throw\n";
-    std::cout << "                              yourself. A good value would be around 0 and 100.\n";
-    std::cout << "                              Setting this variable will also enable physics.\n";
-    std::cout << "  --bodyHeight=FLOAT\n";
-    std::cout << "                              Sets the height of your body for fake trackers.\n";
-    std::cout << "                              Fake trackers are enabled and spawned at your feet\n";
-    std::cout << "                              and in the middle of your body (hopefully your hips.)\n";
-    std::cout << "Examples\n";
-    std::cout << "    $ # Moves the playspace with ONLY A/X on Oculus.\n";
-    std::cout << "    $ PlayspaceMover -l 128 -r 128\n";
-    std::cout << "\n";
-    std::cout << "Button Mappings\n";
-    std::cout << "  We take as integers as a button mask, but they actually represent a bitmask.\n";
-    std::cout << "  You'll have to exercise your CompSci brain to generate these masks. Each\n";
-    std::cout << "  button is represented by a bit in a 32bit integer. Bit number 7 (1000000)\n";
-    std::cout << "  would be 2^7, which is 128 as an integer. Button number 7 also happens to\n";
-    std::cout << "  be the A and X buttons on the Oculus controllers. Therefore setting either\n";
-    std::cout << "  button mask to `128` would make it so only the A or X button activated...\n";
-    std::cout << "  Similarly, you can combine bits, so if you wanted button 2 and button 7\n";
-    std::cout << "  to work with it, you could pass in `130` (2^2 + 2^7), then either would\n";
-    std::cout << "  work!\n";
-    std::cout << "  Below is a list of some known button masks (The mask is what you supply!).\n";
-    std::cout << "    Oculus Masks    Button   Bit   Mask\n";
-    std::cout << "                      A/X      7     128\n";
-    std::cout << "                      B/Y      1     2\n";
-    std::cout << "\n";
-    std::cout << "    Vive Masks      Button   Bit   Mask\n";
-    std::cout << "                      Menu     1     2\n";
-    std::cout << "                      Grip     2     4\n";
-    std::cout << "\n";
-    std::cout << "Tips\n";
-    std::cout << "    * Restarting the app resets your playspace!\n";
-    std::cout << "    * VR Input Emulator has a log file that can be dozens of gigabytes if\n";
-    std::cout << "you're on Oculus, it's in your SteamVR folder under drivers. Set it to\n";
-    std::cout << "read-only to keep it from growing indefinitely.\n";
-}
-
-void updateVirtualDevices() {
-    int count = inputEmulator.getVirtualDeviceCount();
-    if (virtualDeviceIndexes.size() != count) {
-        virtualDeviceIndexes.clear();
-        for (uint32_t deviceIndex = 0; deviceIndex < vr::k_unMaxTrackedDeviceCount; deviceIndex++) {
-            try {
-				auto info = inputEmulator.getVirtualDeviceInfo(deviceIndex);
-				if (info.openvrDeviceId < vr::k_unMaxTrackedDeviceCount)
-					virtualDeviceIndexes.push_back(info.openvrDeviceId);
-            } catch (vrinputemulator::vrinputemulator_exception const&) {
-                //skip
-            }
-        }
-    }
-}
-
-bool isVirtualDevice( uint32_t deviceIndex ) {
-    if (virtualDeviceIndexes.empty()) { return false; }
-    return std::find(virtualDeviceIndexes.begin(), virtualDeviceIndexes.end(), deviceIndex) != virtualDeviceIndexes.end();
-}
-
-void updatePositions() {
-    float fSecondsSinceLastVsync;
-    vr::VRSystem()->GetTimeSinceLastVsync(&fSecondsSinceLastVsync, NULL);
-    float fDisplayFrequency = vr::VRSystem()->GetFloatTrackedDeviceProperty(vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_DisplayFrequency_Float);
-    float fFrameDuration = 1.f / fDisplayFrequency;
-    float fVsyncToPhotons = vr::VRSystem()->GetFloatTrackedDeviceProperty(vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_SecondsFromVsyncToPhotons_Float);
-    float fPredictedSecondsFromNow = fFrameDuration - fSecondsSinceLastVsync + fVsyncToPhotons;
-    vr::VRSystem()->GetDeviceToAbsoluteTrackingPose(vr::TrackingUniverseRawAndUncalibrated, fPredictedSecondsFromNow, devicePoses, vr::k_unMaxTrackedDeviceCount);
-    for (uint32_t deviceIndex = 0; deviceIndex < vr::k_unMaxTrackedDeviceCount; deviceIndex++) {
-        if (!vr::VRSystem()->IsTrackedDeviceConnected(deviceIndex)) {
-            continue;
-        }
-        vr::TrackedDevicePose_t* pose = devicePoses + deviceIndex;
-        vr::HmdMatrix34_t* poseMat = &(pose->mDeviceToAbsoluteTracking);
-        if (pose->bPoseIsValid && pose->bDeviceIsConnected) {
-            deviceLastPos[deviceIndex] = devicePos[deviceIndex];
-            devicePos[deviceIndex] = glm::vec3(poseMat->m[0][3], poseMat->m[1][3], poseMat->m[2][3]);
-        }
-    }
-	//vr::VRCompositor()->WaitGetPoses(devicePoses, vr::k_unMaxTrackedDeviceCount, NULL, 0);
-
-	/*vr::VRCompositor()->SetTrackingSpace(vr::TrackingUniverseRawAndUncalibrated);
-	vr::VRCompositor()->WaitGetPoses(devicePoses, vr::k_unMaxTrackedDeviceCount, NULL, 0);
-    for (uint32_t deviceIndex = 0; deviceIndex < vr::k_unMaxTrackedDeviceCount; deviceIndex++) {
-        if (!vr::VRSystem()->IsTrackedDeviceConnected(deviceIndex)) {
-            continue;
-        }
-        vr::TrackedDevicePose_t* pose = devicePoses + deviceIndex;
-        vr::HmdMatrix34_t* poseMat = &(pose->mDeviceToAbsoluteTracking);
-        if (pose->bPoseIsValid && pose->bDeviceIsConnected) {
-            deviceLastPos[deviceIndex] = devicePos[deviceIndex];
-            devicePos[deviceIndex] = glm::vec3(poseMat->m[0][3], poseMat->m[1][3], poseMat->m[2][3]);
-        }
-    }*/
-}
 
 // Checks that every individual button in mask is pressed, when compared to button.
 bool checkAll(uint64_t button, uint64_t mask) {
@@ -334,30 +159,6 @@ void move() {
     }
 }
 
-void updateBaseOffsets() {
-	for (uint32_t deviceIndex = 0; deviceIndex < vr::k_unMaxTrackedDeviceCount; deviceIndex++) {
-		if (!vr::VRSystem()->IsTrackedDeviceConnected(deviceIndex)) {
-			deviceBaseOffsets[deviceIndex] = glm::vec3(0);
-			continue;
-		}
-		vrinputemulator::DeviceOffsets data;
-		try {
-			inputEmulator.getDeviceOffsets(deviceIndex, data);
-			glm::vec3 offset;
-			offset.x = (float)data.worldFromDriverTranslationOffset.v[0];
-			offset.y = (float)data.worldFromDriverTranslationOffset.v[1];
-			offset.z = (float)data.worldFromDriverTranslationOffset.v[2];
-			deviceBaseOffsets[deviceIndex] = offset;
-		}
-		catch (vrinputemulator::vrinputemulator_notfound e) {
-			glm::vec3 offset;
-			offset.x = 0;
-			offset.y = 0;
-			offset.z = 0;
-			deviceBaseOffsets[deviceIndex] = offset;
-		}
-	}
-}
 
 void setVirtualDevicePosition(uint32_t id, glm::vec3 pos, glm::quat rot) {
 	vr::DriverPose_t pose = inputEmulator.getVirtualDevicePose(id);
@@ -426,96 +227,12 @@ void updateFakeTrackers() {
 	}
 }
 
-bool findTrackers() {
-	uint32_t discovered = 0;
-
-	for (uint32_t i = 0; i < inputEmulator.getVirtualDeviceCount(); i++) {
-		vr::DriverPose_t pose = inputEmulator.getVirtualDevicePose(i);
-		if (pose.deviceIsConnected == true || pose.result != vr::TrackingResult_Uninitialized || pose.poseIsValid == true) {
-			return false;
-		}
-
-		auto info = inputEmulator.getVirtualDeviceInfo(i);
-		if (info.deviceSerial == "playspacemover_hip") {
-			hipID = info.virtualDeviceId; discovered++;
-		}
-		if (info.deviceSerial == "playspacemover_lfoot") {
-			leftFootID = info.virtualDeviceId; discovered++;
-		}
-		if (info.deviceSerial == "playspacemover_rfoot") {
-			rightFootID = info.virtualDeviceId; discovered++;
-		}
-	}
-
-	return discovered == 3;
-}
-
-uint32_t createTracker(const std::string& serial) {
-	uint32_t id = inputEmulator.addVirtualDevice(vrinputemulator::VirtualDeviceType::TrackedController, serial, false);
-	inputEmulator.setVirtualDeviceProperty(id, vr::ETrackedDeviceProperty::Prop_TrackingSystemName_String,					"lighthouse");
-	inputEmulator.setVirtualDeviceProperty(id, vr::ETrackedDeviceProperty::Prop_ModelNumber_String,							"Vive Controller MV");
-	inputEmulator.setVirtualDeviceProperty(id, vr::ETrackedDeviceProperty::Prop_RenderModelName_String,						"vr_controller_vive_1_5");
-	inputEmulator.setVirtualDeviceProperty(id, vr::ETrackedDeviceProperty::Prop_WillDriftInYaw_Bool,						false);
-	inputEmulator.setVirtualDeviceProperty(id, vr::ETrackedDeviceProperty::Prop_ManufacturerName_String,					"HTC");
-	inputEmulator.setVirtualDeviceProperty(id, vr::ETrackedDeviceProperty::Prop_TrackingFirmwareVersion_String,				"1465809478 htcvrsoftware@firmware-win32 2016-06-13 FPGA 1.6/0/0 VRC 1465809477 Radio 1466630404");
-	inputEmulator.setVirtualDeviceProperty(id, vr::ETrackedDeviceProperty::Prop_HardwareRevision_String,					"product 129 rev 1.5.0 lot 2000/0/0 0");
-	inputEmulator.setVirtualDeviceProperty(id, vr::ETrackedDeviceProperty::Prop_DeviceIsWireless_Bool,						true);
-	inputEmulator.setVirtualDeviceProperty(id, vr::ETrackedDeviceProperty::Prop_HardwareRevision_Uint64,					(uint64_t)2164327680);
-	inputEmulator.setVirtualDeviceProperty(id, vr::ETrackedDeviceProperty::Prop_FirmwareVersion_Uint64,						(uint64_t)1465809478);
-	inputEmulator.setVirtualDeviceProperty(id, vr::ETrackedDeviceProperty::Prop_DeviceClass_Int32,							3);
-	inputEmulator.setVirtualDeviceProperty(id, vr::ETrackedDeviceProperty::Prop_SupportedButtons_Uint64,					(uint64_t)12884901895);
-	inputEmulator.setVirtualDeviceProperty(id, vr::ETrackedDeviceProperty::Prop_Axis0Type_Int32,							1);
-	inputEmulator.setVirtualDeviceProperty(id, vr::ETrackedDeviceProperty::Prop_Axis1Type_Int32,							3);
-	inputEmulator.setVirtualDeviceProperty(id, vr::ETrackedDeviceProperty::Prop_Axis2Type_Int32,							0);
-	inputEmulator.setVirtualDeviceProperty(id, vr::ETrackedDeviceProperty::Prop_Axis3Type_Int32,							0);
-	inputEmulator.setVirtualDeviceProperty(id, vr::ETrackedDeviceProperty::Prop_Axis4Type_Int32,							0);
-	inputEmulator.setVirtualDeviceProperty(id, vr::ETrackedDeviceProperty::Prop_IconPathName_String,						"icons");
-	inputEmulator.setVirtualDeviceProperty(id, vr::ETrackedDeviceProperty::Prop_NamedIconPathDeviceOff_String,				"{htc}controller_status_off.png");
-	inputEmulator.setVirtualDeviceProperty(id, vr::ETrackedDeviceProperty::Prop_NamedIconPathDeviceSearching_String,		"{htc}controller_status_searching.gif");
-	inputEmulator.setVirtualDeviceProperty(id, vr::ETrackedDeviceProperty::Prop_NamedIconPathDeviceSearchingAlert_String,	"{htc}controller_status_alert.gif");
-	inputEmulator.setVirtualDeviceProperty(id, vr::ETrackedDeviceProperty::Prop_NamedIconPathDeviceReady_String,			"{htc}controller_status_ready.png");
-	inputEmulator.setVirtualDeviceProperty(id, vr::ETrackedDeviceProperty::Prop_NamedIconPathDeviceNotReady_String,			"{htc}controller_status_error.png");
-	inputEmulator.setVirtualDeviceProperty(id, vr::ETrackedDeviceProperty::Prop_NamedIconPathDeviceStandby_String,			"{htc}controller_status_standby.png");
-	inputEmulator.setVirtualDeviceProperty(id, vr::ETrackedDeviceProperty::Prop_NamedIconPathDeviceAlertLow_String,			"{htc}controller_status_ready_low.png");
-	inputEmulator.publishVirtualDevice(id);
-	return id;
-}
-
-void deleteVirtualDevice(int id) {
-	vr::DriverPose_t pose = inputEmulator.getVirtualDevicePose(id);
-	pose.deviceIsConnected = false;
-	pose.result = vr::TrackingResult_Uninitialized;
-	pose.poseIsValid = false;
-	inputEmulator.setVirtualDevicePose(id, pose, false);
-}
-
 void onClose() {
-	if (fakeTrackers) {
-		deleteVirtualDevice(hipID);
-		deleteVirtualDevice(leftFootID);
-		deleteVirtualDevice(rightFootID);
-	}
 	offset = glm::mat4x4(1);
 	velocity = glm::vec3(0);
 	move();
 	inputEmulator.disconnect();
 }
-
-void signalHandler(int signum) {
-	std::cerr << "Interrupt signal (" << signum << ") received, cleaning up...\n" << std::flush;
-	onClose();
-	exit(signum);
-}
-
-#ifdef _WIN32
-BOOL WINAPI ConsoleHandler(DWORD CEvent) {
-	std::cerr << "Console window was closed, cleaning up...\n" << std::flush;
-	if (CEvent == CTRL_CLOSE_EVENT) {
-		onClose();
-	}
-	return TRUE;
-}
-#endif
 
 int app( int argc, const char** argv ) {
     cxxopts::Options options("PlayspaceMover", "Lets you grab your playspace and move it.");
@@ -666,12 +383,19 @@ int app( int argc, const char** argv ) {
     return 0;
 }
 
-int main(int argc, const char** argv) {
-    try {
-        return app(argc, argv);
-    } catch (cxxopts::OptionException& e) {
-        std::cerr << "Parse error: " << e.what() << "\n";
-		std::cerr << "Try using the --help parameter!\n" << std::flush;
-    }
-    return 1;
+BOOL WINAPI DllMain(
+	_In_ HINSTANCE hinstDLL,
+	_In_ DWORD     fdwReason,
+	_In_ LPVOID    lpvReserved
+)
+{
+	switch (fdwReason) {
+	case DLL_PROCESS_ATTACH:
+		break;
+
+	case DLL_PROCESS_DETACH:
+		break;
+	}
+
+	return TRUE;
 }

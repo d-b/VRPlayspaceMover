@@ -164,10 +164,17 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Devices.cpp" />
+    <ClCompile Include="Globals.cpp" />
     <ClCompile Include="PlayspaceMover.cpp" />
+    <ClCompile Include="Trackers.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="cxxopts.hpp" />
+    <ClInclude Include="Devices.hpp" />
+    <ClInclude Include="Globals.hpp" />
+    <ClInclude Include="Options.hpp" />
+    <ClInclude Include="PlayspaceMover.hpp" />
+    <ClInclude Include="Trackers.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
