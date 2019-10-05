@@ -1,6 +1,7 @@
 ﻿#include "PlayspaceMover.hpp"
 
 static CRITICAL_SECTION m_libraryLock;
+static CRITICAL_SECTION m_configLock;
 static HANDLE m_libraryThread = NULL;
 
 uint64_t Init(LogProc logProc, UpdateProc updateProc, PlayspaceMover::Options options)
@@ -19,9 +20,9 @@ uint64_t Init(LogProc logProc, UpdateProc updateProc, PlayspaceMover::Options op
 
 uint64_t Configure(PlayspaceMover::Options options)
 {
-    EnterCriticalSection(&m_libraryLock);
+    EnterCriticalSection(&m_configLock);
     g_options = options;
-    LeaveCriticalSection(&m_libraryLock);
+    LeaveCriticalSection(&m_configLock);
     return 0;
 }
 
@@ -29,6 +30,10 @@ uint64_t Exit()
 {
     EnterCriticalSection(&m_libraryLock);
     if (m_libraryThread) {
+        if (GetThreadId(m_libraryThread) == GetCurrentThreadId()) {
+            LeaveCriticalSection(&m_libraryLock); return -1;
+        }
+
         g_requestExit = true;
         WaitForSingleObject(m_libraryThread, INFINITE);
         CloseHandle(m_libraryThread);
@@ -49,6 +54,7 @@ BOOL WINAPI DllMain(
     switch (fdwReason) {
     case DLL_PROCESS_ATTACH:
         InitializeCriticalSection(&m_libraryLock);
+        InitializeCriticalSection(&m_configLock);
         break;
 
     case DLL_PROCESS_DETACH:
@@ -59,13 +65,12 @@ BOOL WINAPI DllMain(
     return TRUE;
 }
 
-
 namespace PlayspaceMover
 {
     Options configuration() {
-        EnterCriticalSection(&m_libraryLock);
+        EnterCriticalSection(&m_configLock);
         PlayspaceMover::Options options = g_options;
-        LeaveCriticalSection(&m_libraryLock);
+        LeaveCriticalSection(&m_configLock);
         return options;
     }
 
