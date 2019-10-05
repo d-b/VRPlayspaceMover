@@ -6,10 +6,8 @@ namespace PlayspaceMover
 	struct Options {
 		uint64_t leftButtonMask = 130;
 		uint64_t rightButtonMask = 130;
-		uint64_t leftTogglePhysicsMask = 0;
-		uint64_t rightTogglePhysicsMask = 0;
 		uint64_t resetButtonMask = 0;
-		float bodyHeight = 2;
+		uint64_t rotateButtonMask = 0;
 	};
 
 	struct DeviceState {
@@ -19,10 +17,8 @@ namespace PlayspaceMover
 
 	struct PlayState {
 		float deltaTime;
+		uint64_t rotatePlayer;
 		DeviceState hmd;
-		DeviceState hip;
-		DeviceState lfoot;
-		DeviceState rfoot;
 	};
 
 	struct TrackerState {

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using GlmSharp;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -10,62 +11,45 @@ namespace PlayspaceMover
     [StructLayout(LayoutKind.Sequential, Pack=1)]
     struct Options
     {
-        ulong leftButtonMask;
-        ulong rightButtonMask;
-        ulong leftTogglePhysicsMask;
-        ulong rightTogglePhysicsMask;
-        float bodyHeight;
+        public ulong leftButtonMask;
+        public ulong rightButtonMask;
+        public ulong resetButtonMask;
+        public ulong rotateButtonMask;
     };
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    struct Vector3
-    {
-        float x;
-        float y;
-        float z;
-    }
-
-    [StructLayout(LayoutKind.Sequential, Pack = 1)]
-    struct Quat
-    {
-        float x;
-        float y;
-        float z;
-        float w;
-    }
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     struct DeviceState
     {
-        Vector3 pos;
-        Quat rot;
+        public vec3 pos;
+        public quat rot;
     };
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     struct PlayState
     {
-        float deltaTime;
-        DeviceState hmd;
-        DeviceState hip;
-        DeviceState lfoot;
-        DeviceState rfoot;
+        public float deltaTime;
+        public ulong rotatePlayer;
+        public DeviceState hmd;
     };
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
     struct TrackerState
     {
-        DeviceState hip;
-        DeviceState lfoot;
-        DeviceState rfoot;
+        public DeviceState hip;
+        public DeviceState lfoot;
+        public DeviceState rfoot;
     };
 
     class Library
     {
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        public delegate void LogDelegate(ulong level, [MarshalAs(UnmanagedType.LPWStr)] string message);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public delegate TrackerState UpdateDelegate(PlayState state);
 
         [DllImport("libplayspacemover.dll")]
-        public static extern ulong Init(UpdateDelegate updateDelegate, Options options);
+        public static extern ulong Init(LogDelegate logDelegate, UpdateDelegate updateDelegate, Options options);
 
         [DllImport("libplayspacemover.dll")]
         public static extern ulong Configure(Options options);

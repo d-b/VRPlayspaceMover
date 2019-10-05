@@ -49,6 +49,18 @@ namespace PlayspaceMover
 		}
 	}
 
+	uint32_t Devices::findHMD() {
+		uint32_t HMDID = vr::k_unTrackedDeviceIndexInvalid;
+		for (uint32_t deviceIndex = 0; deviceIndex < vr::k_unMaxTrackedDeviceCount; deviceIndex++) {
+			if (vr::VRSystem()->IsTrackedDeviceConnected(deviceIndex) &&
+			    vr::VRSystem()->GetTrackedDeviceClass(deviceIndex) == vr::TrackedDeviceClass_HMD) {
+				HMDID = deviceIndex;
+				break;
+			}
+		}
+		return HMDID;
+	}
+
 	void Devices::setVirtualDevicePosition(uint32_t id, glm::vec3 pos, glm::quat rot)
 	{
 		vr::DriverPose_t pose = g_inputEmulator.getVirtualDevicePose(id);
@@ -63,5 +75,21 @@ namespace PlayspaceMover
 		pose.qRotation.y = rot.y;
 		pose.qRotation.z = rot.z;
 		g_inputEmulator.setVirtualDevicePose(id, pose, false);
+	}
+
+	vr::TrackedDeviceIndex_t Devices::getLeftButtons(vr::VRControllerState_t& leftButtons)
+	{
+		auto deviceId = vr::VRSystem()->GetTrackedDeviceIndexForControllerRole(vr::TrackedControllerRole_LeftHand);
+		if (deviceId != vr::k_unTrackedDeviceIndexInvalid)
+			vr::VRSystem()->GetControllerState(deviceId, &leftButtons, sizeof(vr::VRControllerState_t));
+		return deviceId;
+	}
+	
+	vr::TrackedDeviceIndex_t Devices::getRightButtons(vr::VRControllerState_t& rightButtons)
+	{
+		auto deviceId = vr::VRSystem()->GetTrackedDeviceIndexForControllerRole(vr::TrackedControllerRole_RightHand);
+		if (deviceId != vr::k_unTrackedDeviceIndexInvalid)
+			vr::VRSystem()->GetControllerState(deviceId, &rightButtons, sizeof(vr::VRControllerState_t));
+		return deviceId;
 	}
 }

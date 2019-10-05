@@ -25,6 +25,7 @@
 #include "Trackers.hpp"
 #include "Devices.hpp"
 #include "Globals.hpp"
+#include "Runtime.hpp"
 
 #ifdef PLAYSPACEMOVER_EXPORTS
 #define PLAYSPACEMOVER_API extern "C" __declspec(dllexport) 
@@ -32,7 +33,13 @@
 #define PLAYSPACEMOVER_API __declspec(dllimport)
 #endif
 
-typedef PlayspaceMover::TrackerState(*UpdateProc)(PlayspaceMover::PlayState state);
-PLAYSPACEMOVER_API uint64_t Init(UpdateProc updateProc, PlayspaceMover::Options options);
+PLAYSPACEMOVER_API uint64_t Init(LogProc logProc, UpdateProc updateProc, PlayspaceMover::Options options);
 PLAYSPACEMOVER_API uint64_t Configure(PlayspaceMover::Options options);
 PLAYSPACEMOVER_API uint64_t Exit();
+
+namespace PlayspaceMover
+{
+	void log(uint64_t level, const wchar_t* message);
+	TrackerState update(PlayState state);
+	Options configuration();
+}

@@ -12,6 +12,7 @@ namespace PlayspaceMover
 	public:
 		Trackers() {}
 		Trackers(std::vector<std::string> serials) { addTrackers(serials); }
+		uint32_t operator[](const std::string& name) { return getTracker(name); }
 		virtual ~Trackers();
 
 		void addTrackers(std::vector<std::string> serials);

@@ -28,14 +28,15 @@ namespace PlayspaceMover
 	
 	void Trackers::refreshDevices()
 	{
-		virtualDeviceSet.clear();
-		for (uint32_t deviceIndex = 0; deviceIndex < vr::k_unMaxTrackedDeviceCount; deviceIndex++) {
-			try {
-				auto info = g_inputEmulator.getVirtualDeviceInfo(deviceIndex);
-				if (info.openvrDeviceId < vr::k_unMaxTrackedDeviceCount)
-					virtualDeviceSet.emplace(info.openvrDeviceId);
+		if (virtualDeviceSet.size() != g_inputEmulator.getVirtualDeviceCount()) {
+			for (uint32_t deviceIndex = 0; deviceIndex < vr::k_unMaxTrackedDeviceCount; deviceIndex++) {
+				try {
+					auto info = g_inputEmulator.getVirtualDeviceInfo(deviceIndex);
+					if (info.openvrDeviceId < vr::k_unMaxTrackedDeviceCount)
+						virtualDeviceSet.emplace(info.openvrDeviceId);
+				}
+				catch (vrinputemulator::vrinputemulator_exception const&) {}
 			}
-			catch (vrinputemulator::vrinputemulator_exception const&) {}
 		}
 	}
 

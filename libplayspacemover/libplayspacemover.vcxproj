@@ -167,11 +167,13 @@
     <ClCompile Include="Devices.cpp" />
     <ClCompile Include="Globals.cpp" />
     <ClCompile Include="PlayspaceMover.cpp" />
+    <ClCompile Include="Runtime.cpp" />
     <ClCompile Include="Trackers.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Devices.hpp" />
     <ClInclude Include="Globals.hpp" />
+    <ClInclude Include="Runtime.hpp" />
     <ClInclude Include="Struct.hpp" />
     <ClInclude Include="PlayspaceMover.hpp" />
     <ClInclude Include="Trackers.hpp" />
