@@ -2,22 +2,22 @@
 
 namespace PlayspaceMover
 {
-	class Runtime
-	{
-		Trackers trackers;
-		Devices devices;
-		vr::IVRSystem* VRSystem;		
-		glm::mat4 offset, lastOffset;
+    class Runtime
+    {
+        Trackers trackers;
+        Devices devices;
+        vr::IVRSystem* VRSystem;
+        glm::mat4 offset, lastOffset;
 
-		void updateOffset(float deltaTime);
-		void updateTrackers(float deltaTime);
-		void movePlayspace();
+        void updateOffset(float deltaTime);
+        void updateTrackers(float deltaTime);
+        void movePlayspace();
 
-	public:
-		Runtime();
-		void init();
-		unsigned long loop();
-	};
+    public:
+        Runtime();
+        void init();
+        unsigned long loop();
+    };
 
-	DWORD runtimeThread(void* arguments);
+    DWORD runtimeThread(void* arguments);
 }

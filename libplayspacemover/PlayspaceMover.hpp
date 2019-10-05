@@ -39,7 +39,7 @@ PLAYSPACEMOVER_API uint64_t Exit();
 
 namespace PlayspaceMover
 {
-	void log(uint64_t level, const wchar_t* message);
-	TrackerState update(PlayState state);
-	Options configuration();
+    void log(uint64_t level, const wchar_t* message);
+    TrackerState update(PlayState state);
+    Options configuration();
 }
