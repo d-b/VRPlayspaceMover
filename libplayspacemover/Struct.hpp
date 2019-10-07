@@ -7,7 +7,7 @@ namespace PlayspaceMover
         uint64_t leftButtonMask = 130;
         uint64_t rightButtonMask = 130;
         uint64_t resetButtonMask = 0;
-        uint64_t rotateButtonMask = 0;
+        uint64_t unlockButtonMask = 0;
     };
 
     struct DeviceState {
@@ -17,7 +17,7 @@ namespace PlayspaceMover
 
     struct PlayState {
         float deltaTime;
-        uint64_t rotatePlayer;
+        uint64_t unlockPlayer;
         DeviceState hmd;
     };
 

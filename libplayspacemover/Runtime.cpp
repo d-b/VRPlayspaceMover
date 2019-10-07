@@ -1,7 +1,5 @@
 #include "PlayspaceMover.hpp"
 
-#include <glm/gtx/string_cast.hpp>
-
 namespace PlayspaceMover
 {
     Runtime::Runtime()
@@ -55,7 +53,7 @@ namespace PlayspaceMover
             timing.m_nSize = sizeof(vr::Compositor_FrameTiming);
             bool hasFrame = vr::VRCompositor()->GetFrameTiming(&timing, 0);
             auto currentTime = std::chrono::high_resolution_clock::now();
-            float deltaTime = (float)(currentTime - lastTime).count();
+            float deltaTime = std::chrono::duration_cast<std::chrono::duration<float>>(currentTime - lastTime).count();
 
             if (!hasFrame || (currentFrame == timing.m_nFrameIndex && timing.m_nNumFramePresents == numFramePresents)) {
                 std::this_thread::sleep_for(std::chrono::microseconds(1111)); continue;
@@ -127,9 +125,9 @@ namespace PlayspaceMover
 
             PlayState playState;
             playState.deltaTime = deltaTime;
-            playState.rotatePlayer =
-                checkAll(leftButtons.ulButtonPressed, conf.rotateButtonMask) &&
-                checkAll(rightButtons.ulButtonPressed, conf.rotateButtonMask);
+            playState.unlockPlayer =
+                checkAll(leftButtons.ulButtonPressed, conf.unlockButtonMask) &&
+                checkAll(rightButtons.ulButtonPressed, conf.unlockButtonMask);
             playState.hmd.pos = (glm::inverse(offset)*glm::vec4(devices.position[HMDID], 1)).xyz();
             playState.hmd.rot = glm::inverse(glm::quat_cast(hmdRotMat));
             TrackerState trackerState = PlayspaceMover::update(playState);

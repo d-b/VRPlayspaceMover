@@ -14,7 +14,7 @@ namespace PlayspaceMover
         public ulong leftButtonMask;
         public ulong rightButtonMask;
         public ulong resetButtonMask;
-        public ulong rotateButtonMask;
+        public ulong unlockButtonMask;
     };
 
     [StructLayout(LayoutKind.Sequential, Pack = 1)]
@@ -28,7 +28,7 @@ namespace PlayspaceMover
     struct PlayState
     {
         public float deltaTime;
-        public ulong rotatePlayer;
+        public ulong unlockPlayer;
         public DeviceState hmd;
     };
 
@@ -56,5 +56,14 @@ namespace PlayspaceMover
 
         [DllImport("libplayspacemover.dll")]
         public static extern ulong Exit();
+
+        public static quat quatLookAtRH(vec3 direction, vec3 up)
+        {
+            mat3 result = new mat3();
+            result.Column2 = -direction;
+            result.Column0 = vec3.Cross(up, result.Column2);
+            result.Column1 = vec3.Cross(result.Column2, result.Column0);
+            return result.ToQuaternion;
+        }
     }
 }
