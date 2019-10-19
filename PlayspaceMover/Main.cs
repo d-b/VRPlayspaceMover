@@ -19,13 +19,15 @@ namespace PlayspaceMover
         POSE_Sit2,
         POSE_Sit3,
         POSE_SitDangle,
-        POSE_Lie,
+        POSE_Float,
+        POSE_Lie
     };
 
     struct PosingOptions
     {
         public bool lockRotation;
         public bool lockPosition;
+        public bool unlockHip;
         public bool enableUnlock;
     }
 
@@ -62,7 +64,26 @@ namespace PlayspaceMover
             }));
         }
 
-        private TrackerState GenerateTrackerState(PlayState state)
+        TrackerState Update(PlayState state)
+        {
+            currentTime += state.deltaTime;
+
+            PosingOptions posingOptions = GetPosingOptions();
+            bool unlockPlayer = (state.unlockPlayer != 0 && posingOptions.enableUnlock);
+
+            if (currentRotation == null || currentPose == Pose.POSE_TPose || !posingOptions.lockRotation || unlockPlayer)
+            {
+                vec3 headRight = state.hmd.rot * new vec3(1, 0, 0); headRight.y = 0;
+                currentRotation = Library.quatLookAtRH(headRight.Normalized, new vec3(0, 1, 0));
+            }
+
+            if (currentPosition == null || currentPose == Pose.POSE_TPose || !posingOptions.lockPosition || unlockPlayer)
+                currentPosition = state.hmd.pos;
+
+            return GenerateTrackerState(state, posingOptions.unlockHip);
+        }
+
+        private TrackerState GenerateTrackerState(PlayState state, bool unlockHip)
         {
             float bodyHeight = 1.7f;
 
@@ -76,7 +97,7 @@ namespace PlayspaceMover
 
                         TrackerState trackers = new TrackerState();
                         trackers.hip.pos = currentPosition + down * (bodyHeight / 2.0f);
-                        trackers.hip.rot = currentRotation;
+                        trackers.hip.rot = unlockHip ? calcHipRotation(state.hmd.pos, trackers.hip.pos) : currentRotation;
                         trackers.lfoot.pos = currentPosition + down * bodyHeight * 0.75F + (footForward - footRight) * 0.17f;
                         trackers.lfoot.rot = currentRotation;
                         trackers.rfoot.pos = currentPosition + down * bodyHeight * 0.75F + (footForward + footRight) * 0.17f;
@@ -92,7 +113,7 @@ namespace PlayspaceMover
 
                         TrackerState trackers = new TrackerState();
                         trackers.hip.pos = currentPosition + down * (bodyHeight / 2.0f);
-                        trackers.hip.rot = currentRotation;
+                        trackers.hip.rot = unlockHip ? calcHipRotation(state.hmd.pos, trackers.hip.pos) : currentRotation;
                         trackers.lfoot.pos = currentPosition + down * bodyHeight * 0.55f + (footForward - footRight) * 0.17f;
                         trackers.lfoot.rot = currentRotation;
                         trackers.rfoot.pos = currentPosition + down * bodyHeight * 0.55f + (footForward + footRight) * 0.17f;
@@ -108,7 +129,7 @@ namespace PlayspaceMover
 
                         TrackerState trackers = new TrackerState();
                         trackers.hip.pos = currentPosition + down * (bodyHeight / 2.0f);
-                        trackers.hip.rot = currentRotation;
+                        trackers.hip.rot = unlockHip ? calcHipRotation(state.hmd.pos, trackers.hip.pos) : currentRotation;
                         trackers.lfoot.pos = currentPosition + down * bodyHeight * 0.45f + (footForward - footRight) * 0.17f;
                         trackers.lfoot.rot = currentRotation * new quat(new vec3(0, 0, -1));
                         trackers.rfoot.pos = currentPosition + down * bodyHeight * 0.45f + (footForward + footRight) * 0.17f;
@@ -126,10 +147,28 @@ namespace PlayspaceMover
 
                         TrackerState trackers = new TrackerState();
                         trackers.hip.pos = currentPosition + down * (bodyHeight / 2.0f);
-                        trackers.hip.rot = currentRotation;
+                        trackers.hip.rot = unlockHip ? calcHipRotation(state.hmd.pos, trackers.hip.pos) : currentRotation;
                         trackers.lfoot.pos = currentPosition + down * bodyHeight * 0.75F + (footForward - footRight) * 0.17f + footDangle * dangle * 0.075f;
                         trackers.lfoot.rot = currentRotation;
                         trackers.rfoot.pos = currentPosition + down * bodyHeight * 0.75F + (footForward + footRight) * 0.17f - footDangle * dangle * 0.075f;
+                        trackers.rfoot.rot = currentRotation;
+                        return trackers;
+                    }
+
+                case Pose.POSE_Float:
+                    {
+                        float dangle = DangleFactor(currentTime, 1.5f);
+                        vec3 down = new vec3(0, -1, 0);
+                        vec3 footRight = currentRotation * new vec3(0, 0, 1);
+                        vec3 footForward = currentRotation * new vec3(-1f, 0, 0);
+                        vec3 footDangle = currentRotation * new vec3(0, 1.0f, 0);
+
+                        TrackerState trackers = new TrackerState();
+                        trackers.hip.pos = currentPosition + down * (bodyHeight / 2.0f);
+                        trackers.hip.rot = unlockHip ? calcHipRotation(state.hmd.pos, trackers.hip.pos) : currentRotation;
+                        trackers.lfoot.pos = currentPosition + down * bodyHeight * 0.95f + (footForward - footRight) * 0.17f + footDangle * dangle * 0.025f;
+                        trackers.lfoot.rot = currentRotation;
+                        trackers.rfoot.pos = currentPosition + down * bodyHeight * 0.95f + (footForward + footRight) * 0.17f - footDangle * dangle * 0.025f;
                         trackers.rfoot.rot = currentRotation;
                         return trackers;
                     }
@@ -171,6 +210,11 @@ namespace PlayspaceMover
             }
         }
 
+        private quat calcHipRotation(vec3 hmd, vec3 hip)
+        {
+            return Library.rotation(new vec3(0, 1, 0), (hmd - hip).Normalized) * currentRotation;
+        }
+
         private PosingOptions GetPosingOptions()
         {
             return (PosingOptions)Invoke(new Func<PosingOptions>(() =>
@@ -178,28 +222,10 @@ namespace PlayspaceMover
                 PosingOptions options = new PosingOptions();
                 options.lockRotation = checkLockRotation.Checked;
                 options.lockPosition = checkLockPosition.Checked;
+                options.unlockHip = checkUnlockHip.Checked;
                 options.enableUnlock = checkEnableUnlock.Checked;
                 return options;
             }));
-        }
-
-        TrackerState Update(PlayState state)
-        {
-            currentTime += state.deltaTime;
-
-            PosingOptions posingOptions = GetPosingOptions();
-            bool unlockPlayer = (state.unlockPlayer != 0 && posingOptions.enableUnlock);
-
-            if (currentRotation == null || currentPose == Pose.POSE_TPose || !posingOptions.lockRotation || unlockPlayer)
-            {
-                vec3 headRight = state.hmd.rot * new vec3(1, 0, 0); headRight.y = 0;
-                currentRotation = Library.quatLookAtRH(headRight.Normalized, new vec3(0, 1, 0));
-            }
-
-            if (currentPosition == null || currentPose == Pose.POSE_TPose || !posingOptions.lockPosition || unlockPlayer)
-                currentPosition = state.hmd.pos;
-
-            return GenerateTrackerState(state);
         }
 
         public Main()
@@ -246,9 +272,9 @@ namespace PlayspaceMover
             currentPose = Pose.POSE_Sit3;
         }
 
-        private void buttonLie_Click(object sender, EventArgs e)
+        private void buttonFloat_Click(object sender, EventArgs e)
         {
-            currentPose = Pose.POSE_Lie;
+            currentPose = Pose.POSE_Float;
         }
         private void buttonSitDangle_Click(object sender, EventArgs e)
         {
